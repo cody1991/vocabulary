@@ -82,7 +82,12 @@ footer {
 }
 
 .reveal {
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
+  padding: 0.2rem 0.55rem;
+  min-height: 0;
+  font-size: 0.8rem;
+  border-radius: 6px;
+  width: fit-content;
 }
 
 .zh {
