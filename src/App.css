@@ -65,6 +65,17 @@ footer {
   padding: 0.4rem 0.85rem;
 }
 
+.section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.15rem;
+}
+
+.section-head .label {
+  margin: 0;
+}
+
 .label {
   margin: 1.15rem 0 0.35rem;
   font-size: 0.75rem;
@@ -72,6 +83,13 @@ footer {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+.play-sm {
+  min-height: 0;
+  padding: 0.15rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
 }
 
 .def,
@@ -125,5 +143,15 @@ footer a {
 
   .actions {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+.meta {
+  margin: 0 0 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .actions-3 {
+    grid-template-columns: 1fr 1fr 1fr;
   }
 }

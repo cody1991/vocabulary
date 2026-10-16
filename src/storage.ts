@@ -1,8 +1,9 @@
 export const UNKNOWN_STORAGE_KEY = "vocab.unknown";
+export const KNOWN_STORAGE_KEY = "vocab.known";
 
-export function loadUnknown(): string[] {
+function loadWordList(key: string): string[] {
   try {
-    const raw = localStorage.getItem(UNKNOWN_STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     if (!raw) {
       return [];
     }
@@ -25,6 +26,22 @@ export function loadUnknown(): string[] {
   }
 }
 
+function saveWordList(key: string, words: string[]): void {
+  localStorage.setItem(key, JSON.stringify(words));
+}
+
+export function loadUnknown(): string[] {
+  return loadWordList(UNKNOWN_STORAGE_KEY);
+}
+
 export function saveUnknown(words: string[]): void {
-  localStorage.setItem(UNKNOWN_STORAGE_KEY, JSON.stringify(words));
+  saveWordList(UNKNOWN_STORAGE_KEY, words);
+}
+
+export function loadKnown(): string[] {
+  return loadWordList(KNOWN_STORAGE_KEY);
+}
+
+export function saveKnown(words: string[]): void {
+  saveWordList(KNOWN_STORAGE_KEY, words);
 }

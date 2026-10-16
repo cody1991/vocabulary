@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { shuffle } from "./shuffle.ts";
-import { loadUnknown, saveUnknown } from "./storage.ts";
+import {
+  loadKnown,
+  loadUnknown,
+  saveKnown,
+  saveUnknown,
+} from "./storage.ts";
 import { isCard, type Card, type StudyMode } from "./types.ts";
 
 function youdaoUrl(word: string): string {
@@ -13,6 +18,7 @@ export default function App() {
   const [loadError, setLoadError] = useState("");
   const [mode, setMode] = useState<StudyMode>("all");
   const [unknown, setUnknown] = useState<string[]>(loadUnknown);
+  const [known, setKnown] = useState<string[]>(loadKnown);
   const [order, setOrder] = useState<Card[]>([]);
   const [index, setIndex] = useState(0);
   const [showZh, setShowZh] = useState(false);
@@ -37,7 +43,8 @@ export default function App() {
           throw new Error("The word list is empty.");
         }
         setCards(parsed);
-        setOrder(shuffle(parsed));
+        const knownSet = new Set(loadKnown());
+        setOrder(shuffle(parsed.filter((card) => !knownSet.has(card.word))));
         setIndex(0);
       })
       .catch((error: unknown) => {
@@ -52,29 +59,66 @@ export default function App() {
   useEffect(() => {
     return () => {
       audioRef.current?.pause();
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
 
   const unknownSet = useMemo(() => new Set(unknown), [unknown]);
+  const knownSet = useMemo(() => new Set(known), [known]);
   const savedCount = useMemo(
     () => (cards ? cards.filter((card) => unknownSet.has(card.word)).length : 0),
     [cards, unknownSet],
   );
+  const knownCount = useMemo(
+    () => (cards ? cards.filter((card) => knownSet.has(card.word)).length : 0),
+    [cards, knownSet],
+  );
+
+  function stopSpeech() {
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      window.speechSynthesis.cancel();
+    }
+  }
 
   function stopAudio() {
     audioRef.current?.pause();
+    stopSpeech();
     setAudioError(false);
+  }
+
+  function speakText(text: string) {
+    if (!text.trim()) {
+      return;
+    }
+    audioRef.current?.pause();
+    stopSpeech();
+    setAudioError(false);
+    if (!("speechSynthesis" in window)) {
+      setAudioError(true);
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "en-US";
+    utterance.onerror = () => setAudioError(true);
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function deckFor(nextMode: StudyMode, nextCards: Card[], nextUnknown: Set<string>, nextKnown: Set<string>) {
+    if (nextMode === "unknown") {
+      return nextCards.filter((card) => nextUnknown.has(card.word));
+    }
+    return nextCards.filter((card) => !nextKnown.has(card.word));
   }
 
   function switchMode(nextMode: StudyMode) {
     if (!cards || nextMode === mode) {
       return;
     }
-    const deck =
-      nextMode === "all" ? cards : cards.filter((card) => unknownSet.has(card.word));
     stopAudio();
     setMode(nextMode);
-    setOrder(shuffle(deck));
+    setOrder(shuffle(deckFor(nextMode, cards, unknownSet, knownSet)));
     setIndex(0);
     setShowZh(false);
   }
@@ -88,22 +132,48 @@ export default function App() {
     setShowZh(false);
   }
 
+  function removeCurrentFromOrder(word: string) {
+    const at = order.findIndex((card) => card.word === word);
+    const trimmed = order.filter((card) => card.word !== word);
+    setOrder(trimmed);
+    setIndex(trimmed.length === 0 ? 0 : Math.min(at < 0 ? index : at, trimmed.length - 1));
+    setShowZh(false);
+    stopAudio();
+  }
+
   function toggleUnknown(word: string) {
     const saved = unknownSet.has(word);
-    const next = saved ? unknown.filter((item) => item !== word) : [...unknown, word];
-    setUnknown(next);
-    saveUnknown(next);
+    const nextUnknown = saved ? unknown.filter((item) => item !== word) : [...unknown, word];
+    setUnknown(nextUnknown);
+    saveUnknown(nextUnknown);
+
+    if (!saved && knownSet.has(word)) {
+      const nextKnown = known.filter((item) => item !== word);
+      setKnown(nextKnown);
+      saveKnown(nextKnown);
+    }
+
     if (saved && mode === "unknown") {
-      const at = order.findIndex((card) => card.word === word);
-      const trimmed = order.filter((card) => card.word !== word);
-      setOrder(trimmed);
-      setIndex(trimmed.length === 0 ? 0 : Math.min(at < 0 ? index : at, trimmed.length - 1));
-      setShowZh(false);
-      stopAudio();
+      removeCurrentFromOrder(word);
     }
   }
 
+  function markKnown(word: string) {
+    if (!knownSet.has(word)) {
+      const nextKnown = [...known, word];
+      setKnown(nextKnown);
+      saveKnown(nextKnown);
+    }
+    if (unknownSet.has(word)) {
+      const nextUnknown = unknown.filter((item) => item !== word);
+      setUnknown(nextUnknown);
+      saveUnknown(nextUnknown);
+    }
+    removeCurrentFromOrder(word);
+  }
+
   function play(word: string) {
+    stopSpeech();
     audioRef.current?.pause();
     const audio = new Audio(youdaoUrl(word));
     audioRef.current = audio;
@@ -118,7 +188,10 @@ export default function App() {
     <main className="app">
       <header>
         <h1>CET-6</h1>
-        <p className="lede">One word at a time. Unknown words stay on this device.</p>
+        <p className="lede">
+          One word at a time. Known words leave the full deck; unknown words stay for review.
+        </p>
+        <p className="count meta">Known on this device: {knownCount}</p>
         <div className="modes" role="group" aria-label="Which words to study">
           <button type="button" aria-pressed={mode === "all"} onClick={() => switchMode("all")}>
             All words
@@ -142,6 +215,16 @@ export default function App() {
           <p>Save a word from the full list. It stays in this browser.</p>
           <button type="button" className="primary" onClick={() => switchMode("all")}>
             All words
+          </button>
+        </section>
+      ) : null}
+
+      {cards && mode === "all" && order.length === 0 ? (
+        <section className="card empty">
+          <h2>All caught up</h2>
+          <p>Every word is marked known on this device. Clear site data to reset, or review unknowns.</p>
+          <button type="button" className="primary" onClick={() => switchMode("unknown")}>
+            Unknown only
           </button>
         </section>
       ) : null}
@@ -171,7 +254,14 @@ export default function App() {
               </p>
             ) : null}
 
-            <h3 className="label">English</h3>
+            <div className="section-head">
+              <h3 className="label">English</h3>
+              {card.defEn ? (
+                <button type="button" className="play play-sm" onClick={() => speakText(card.defEn)}>
+                  Play
+                </button>
+              ) : null}
+            </div>
             {card.defEn ? (
               <p className="def">{card.defEn}</p>
             ) : (
@@ -200,7 +290,14 @@ export default function App() {
               </p>
             )}
 
-            <h3 className="label">Example</h3>
+            <div className="section-head">
+              <h3 className="label">Example</h3>
+              {card.sentence ? (
+                <button type="button" className="play play-sm" onClick={() => speakText(card.sentence)}>
+                  Play
+                </button>
+              ) : null}
+            </div>
             {card.sentence ? (
               <p className="sentence">{card.sentence}</p>
             ) : (
@@ -208,7 +305,7 @@ export default function App() {
             )}
           </article>
 
-          <div className="actions">
+          <div className="actions actions-3">
             <button type="button" className="primary" onClick={showNext}>
               Next
             </button>
@@ -218,6 +315,9 @@ export default function App() {
               onClick={() => toggleUnknown(card.word)}
             >
               {unknownSet.has(card.word) ? "Remove from unknown" : "Save to unknown"}
+            </button>
+            <button type="button" onClick={() => markKnown(card.word)}>
+              I know this
             </button>
           </div>
         </>
