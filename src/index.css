@@ -1,0 +1,73 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f4f2;
+  --text: #1a1a1a;
+  --muted: #5e5e5e;
+  --card: #ffffff;
+  --line: #d8d8d4;
+  --accent: #1d4e3a;
+  --accent-text: #ffffff;
+  --focus: #1d4e3a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --bg: #141413;
+    --text: #f2f2ef;
+    --muted: #b3b3ab;
+    --card: #1e1e1c;
+    --line: #3a3a36;
+    --accent: #8fbfa4;
+    --accent-text: #102018;
+    --focus: #8fbfa4;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  font-family: system-ui, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.45;
+}
+
+button,
+a {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  min-height: 48px;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+button[aria-pressed="true"],
+button.primary {
+  background: var(--accent);
+  color: var(--accent-text);
+  border-color: transparent;
+}
